@@ -3,6 +3,7 @@ import { useRecoilValue } from "recoil";
 import { strengthWorkoutsState, userState } from "../../common/recoilStateDefs";
 import { ExerciseSet } from "../../models/workout";
 import Chart, { Props as ApexChartProps } from "react-apexcharts";
+import MuscleMap from "../MuscleMap/MuscleMap";
 import { useEffect, useRef, useState } from "react";
 import { sortBy, sum } from "lodash";
 import PillSelect from "../PillSelect/PillSelect";
@@ -68,6 +69,7 @@ export default function TrainingVolume() {
   );
   const [groupingLevel, setGroupingLevel] = useState("coarse");
   const [volumeType, setVolumeType] = useState<"sets" | "weight">("sets");
+  const [viewType, setViewType] = useState<"coarse" | "granular" | "visual">("coarse");
   const [chartHeight, setChartHeight] = useState("auto");
   const [showTargetSetsLine, setShowTargetSetsLine] = useState(false);
   const [targetSets, setTargetSets] = useState(10);
@@ -168,6 +170,25 @@ export default function TrainingVolume() {
     return res;
   };
 
+  const groupSetsByGranularMuscle = () => {
+    const res = new Map<string, ExerciseSet[]>();
+
+    for (let workout of workouts) {
+      if (workout.startTime < earliestDate) {
+        continue;
+      }
+      for (let es of workout.exerciseSets || []) {
+        const pms = getMuscleGroups(
+          es.exercise.name || es.exercise.category,
+        ).primaryMuscles;
+        for (let muscle of pms) {
+          res.set(muscle, [...(res.get(muscle) || []), es]);
+        }
+      }
+    }
+    return res;
+  };
+
   const extractVolumeFromSets = (ess: ExerciseSet[]) => {
     if (volumeType === "weight")
       return Math.round(
@@ -214,7 +235,9 @@ export default function TrainingVolume() {
     };
   };
   const setsByMuscle = groupSetsByPrimaryMuscle();
+  const setsByGranularMuscle = groupSetsByGranularMuscle();
   const volumePerMuscle = extractVolumePerMuscle(setsByMuscle);
+  const volumePerGranularMuscle = extractVolumePerMuscle(setsByGranularMuscle);
   const yAxisTitle =
     volumeType === "weight" ? `Total Weight (${weightUnit})` : "# Sets";
   const prepChartProps = (): ApexChartProps => {
@@ -257,6 +280,12 @@ export default function TrainingVolume() {
     };
   };
 
+  const muscleActivation = new Map<string, number>();
+  
+  for (let [muscle, volume] of volumePerGranularMuscle) {
+    muscleActivation.set(muscle, volume);
+  }
+
   if (!workouts?.length) {
     return <WorkoutDataFetch />;
   }
@@ -286,8 +315,12 @@ export default function TrainingVolume() {
           options={[
             { title: "Simpler", value: "coarse" },
             { title: "Detailed", value: "granular" },
+            { title: "Visual", value: "visual" },
           ]}
-          onChange={setGroupingLevel}
+          onChange={(view) => {
+            setViewType(view as "coarse" | "granular" | "visual");
+            setGroupingLevel(view === "coarse" ? "coarse" : "granular");
+          }}
           defaultValue={"coarse"}
         />
         <PillSelect
@@ -352,7 +385,11 @@ export default function TrainingVolume() {
         the chart.
       </div>
       <div className="mt-2 w-full xl:w-3/5" ref={chartParentRef}>
-        <Chart {...prepChartProps()} />
+        {viewType === "visual" ? (
+          <MuscleMap muscleActivation={Object.fromEntries(muscleActivation)} />
+        ) : (
+          <Chart {...prepChartProps()} />
+        )}
       </div>
       {breakdownMuscleGroup && (
         <MuscleGroupBreakdown

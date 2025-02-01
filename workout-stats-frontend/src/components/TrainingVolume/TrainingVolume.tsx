@@ -386,7 +386,13 @@ export default function TrainingVolume() {
       </div>
       <div className="mt-2 w-full xl:w-3/5" ref={chartParentRef}>
         {viewType === "visual" ? (
-          <MuscleMap muscleActivation={Object.fromEntries(muscleActivation)} />
+          <MuscleMap 
+            muscleActivation={Object.fromEntries(muscleActivation)}
+            volumeType={volumeType}
+            totalVolume={calculateTotalVolume()}
+            weightUnit={weightUnit}
+            onMuscleClick={(muscle) => setBreakdownMuscleGroup(muscle)}
+        />
         ) : (
           <Chart {...prepChartProps()} />
         )}

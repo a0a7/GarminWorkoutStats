@@ -195,10 +195,9 @@ export default function TrainingVolume() {
         ess
           .map((es) => (es.weight || 0) * es.repetitionCount)
           .map((weight) => convertWeight(weight, user))
-          .reduce((a, b) => a + b),
+          .reduce((a, b) => a + b, 0) // Provide an initial value of 0
       );
-    return ess.filter((es) => countZeroRepSets || es.repetitionCount > 0)
-      .length;
+    return ess.filter((es) => countZeroRepSets || es.repetitionCount > 0).length;
   };
 
   const extractVolumePerMuscle = (
